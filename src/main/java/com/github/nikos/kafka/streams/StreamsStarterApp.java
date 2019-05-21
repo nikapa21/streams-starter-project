@@ -7,9 +7,10 @@ import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KStreamBuilder;
 import org.apache.kafka.streams.kstream.KTable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
-import java.util.Properties;
+import java.util.*;
 
 public class StreamsStarterApp {
 
@@ -22,20 +23,48 @@ public class StreamsStarterApp {
         config.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         config.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
 
+
+        /*** We disable the cache to demonstrate all the "steps" involved in the transformation ***/
+        /*** ONLY FOR DEVELOPMENT, NOT PRODUCTION ***/
+
+        config.put(StreamsConfig.CACHE_MAX_BYTES_BUFFERING_CONFIG, "0");
+
         KStreamBuilder builder = new KStreamBuilder();
+        Hashtable<String, Message> messageList = new Hashtable<>();
 
-        KStream<String, String> wordCountInput = builder.stream("topic-036-input");
+        Hashtable<Double[], String> coordsTable = new Hashtable<>();
 
-        KTable<String, Long> wordCounts = wordCountInput
-                .mapValues(value -> value
-                .toLowerCase())
-                .flatMapValues(value -> Arrays.asList(value.split(" ")))
-                .selectKey((ignoredKey, word) -> word)
-                .groupByKey()
-                .count("Counts");
+        KStream<String, String> dataInput = builder.stream("topic-025-input");
 
-        wordCounts.to(Serdes.String(),Serdes.Long(),"topic-036-output");
+        dataInput
+                .selectKey((key, value) -> value.split(",")[1])
+                .mapValues(line -> {
+                    String[] fields = line.split(",");
+                    Topic topic = new Topic("036");
+                    String timestamp = fields[5];
+                    String x = fields[6];
+                    String y = fields[7];
+                    Value value = new Value(x,y,timestamp);
+                    Message msg = new Message(topic, value);
+                    return msg; }).foreach((key, line) -> messageList.put(key, line));
+
+//        dataInput.to("intermediary-topic-with-values-only");
+//
+//        KTable<String, String> dataValuesTable = builder.table("intermediary-topic-with-values-only");
+//
+//        KTable<String, String> dataValues = dataValuesTable;
+//        KTable<String, Long> wordCounts = dataInput
+//                .mapValues(value -> value
+//                .toLowerCase())
+//                .flatMapValues(value -> Arrays.asList(value.split(" ")))
+//                .selectKey((ignoredKey, word) -> word)
+//                .groupByKey()
+//                .count("Counts");
+
+        dataInput.to(Serdes.String(),Serdes.String(),"topic-025-output");
         KafkaStreams streams = new KafkaStreams(builder, config);
+
+        streams.cleanUp(); //ONLY FOR DEV
         streams.start();
 
         // printing the topology
