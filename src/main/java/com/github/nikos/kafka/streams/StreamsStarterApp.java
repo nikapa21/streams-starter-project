@@ -30,23 +30,9 @@ public class StreamsStarterApp {
         config.put(StreamsConfig.CACHE_MAX_BYTES_BUFFERING_CONFIG, "0");
 
         KStreamBuilder builder = new KStreamBuilder();
-        Hashtable<String, Message> messageList = new Hashtable<>();
-
-        Hashtable<Double[], String> coordsTable = new Hashtable<>();
 
         KStream<String, String> dataInput = builder.stream("topic-025-input");
 
-        dataInput
-                .selectKey((key, value) -> value.split(",")[1])
-                .mapValues(line -> {
-                    String[] fields = line.split(",");
-                    Topic topic = new Topic("036");
-                    String timestamp = fields[5];
-                    String x = fields[6];
-                    String y = fields[7];
-                    Value value = new Value(x,y,timestamp);
-                    Message msg = new Message(topic, value);
-                    return msg; }).foreach((key, line) -> messageList.put(key, line));
 
 //        dataInput.to("intermediary-topic-with-values-only");
 //
