@@ -16,7 +16,6 @@ import org.apache.kafka.streams.state.StoreBuilder;
 import org.apache.kafka.streams.state.Stores;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
 
 public class StreamsStarterApp {
@@ -56,33 +55,8 @@ public class StreamsStarterApp {
 
         KStream<String, String> dataInput = builder.stream("topic-025-input");
 
+        dataInput.transform(new ReservoirSamplingSupplier(50L)).to("topic-025-output");
 
-        dataInput.transform(new ReservoirSamplingSupplier(500L));
-
-//        dataInput.to("intermediary-topic-with-values-only");
-//
-//        KTable<String, String> dataValuesTable = builder.table("intermediary-topic-with-values-only");
-//
-//        KTable<String, String> dataValues = dataValuesTable;
-
-//        KTable<String, Long> wordCounts = dataInput
-//                .mapValues(value -> value
-//                .toLowerCase())
-//                .flatMapValues(value -> Arrays.asList(value.split(" ")))
-//                .selectKey((ignoredKey, word) -> word)
-//                .groupByKey()
-//                .count("Counts");
-
-//        dataInput.foreach(new ForeachAction<String, String>() {
-//            @Override
-//            public void apply(String key, String value) {
-//                // TODO sampling
-//
-//                System.out.println(key + " : " +value);
-//            }
-//        });
-
-        dataInput.to("topic-025-output");
         KafkaStreams streams = new KafkaStreams(builder.build(), config);
 
         streams.cleanUp(); //ONLY FOR DEV
@@ -108,16 +82,14 @@ public class StreamsStarterApp {
         public Transformer<String, String, KeyValue<String, String>> get() {
             return new Transformer<String, String, KeyValue<String, String>>() {
 
-                private KeyValueStore<String, String> sampleStore;
-                private KeyValueStore<String, Long> counterStore;
+                private boolean initIsDone;
+                private List<String> sampleList = new ArrayList<String>();
                 private ProcessorContext context;
-                private long counter;
+                private int counter;
 
                 @Override
                 @SuppressWarnings("unchecked")
                 public void init(ProcessorContext context) {
-                    sampleStore = (KeyValueStore<String, String>) context.getStateStore("inmemory-samples");
-                    counterStore = (KeyValueStore<String, Long>) context.getStateStore("inmemory-counter");
                     this.context = context;
                     this.context.schedule(Duration.ofSeconds(2), PunctuationType.STREAM_TIME, this::punctuate);
                 }
@@ -130,75 +102,80 @@ public class StreamsStarterApp {
 //            …a) Generate a random number from 0 to i where i is index of current item in stream[]. Let the generated random number is j.
 //            …b) If j is in range 0 to k-1, replace reservoir[j] with arr[i]
 
-                    System.out.println("Here sampling of " + k + " samples should happen " + recordKey + ": " + recordValue);
-
-                    saveTheCounterInStore();
+                    // System.out.println("Here sampling of " + k + " samples should happen " + recordKey + ": " + recordValue);
 
                     if (firstKItemsOfStream()) {
                         saveSampleInStoreWithCurrentKeyValuePair(recordKey, recordValue);
                     }
-
                     else {
-                        long i = getIndexOfCurrentItem();
-                        long j = generateRandomNumberFromZeroToIndexOfCurrentItem(i);
+                        int i = getIndexOfCurrentItem();
+                        int j = generateRandomNumberFromZeroToIndexOfCurrentItem(i);
 
                         if (j>0 && j<k-1) {
                             replaceSampleInStoreWithCurrentKeyValuePair(j, recordKey, recordValue);
                         }
                     }
 
+                    saveTheCounterInStore();
                     return null;
 
                 }
 
                 private void saveTheCounterInStore() {
-
                     counter++;
-                    System.out.println(counter);
-
                 }
 
                 private boolean firstKItemsOfStream() {
-                    return true;
+                    if (counter < k)
+                        return true;
+                    else
+                        return false;
                 }
 
                 private void saveSampleInStoreWithCurrentKeyValuePair(String recordKey, String recordValue) {
-
+                    sampleList.add(recordValue);
                 }
 
-                private long getIndexOfCurrentItem() {
-                    return 0;
+                private int getIndexOfCurrentItem() {
+                    int indexOfCurrentItem = counter;
+                    return indexOfCurrentItem;
                 }
 
-                private long generateRandomNumberFromZeroToIndexOfCurrentItem(long i) {
-                    return 0;
+                private int generateRandomNumberFromZeroToIndexOfCurrentItem(int i) {
+
+                    Random random = new Random();
+                    int n = random.nextInt(i);
+
+                    return n;
                 }
 
-                private void replaceSampleInStoreWithCurrentKeyValuePair(long j, String recordKey, String recordValue) {
-
+                private void replaceSampleInStoreWithCurrentKeyValuePair(int j, String recordKey, String recordValue) {
+                    sampleList.set(j, recordValue);
                 }
 
 
                 private void punctuate(final long timestamp) {
-                    System.out.println("Punctuating @ timestamp {} " + timestamp);
-                    sendAndPurgeAnyWaitingRecordsThatHaveExceededWaitTime(timestamp);
+
+                    if (initIsDone) {
+                        System.out.println("Punctuating @ timestamp {} " + timestamp);
+                        sendAndPurgeAnyWaitingRecordsThatHaveExceededWaitTime(timestamp);
+                    }
+
+                    initIsDone = true;
                 }
 
                 private void sendAndPurgeAnyWaitingRecordsThatHaveExceededWaitTime(final long currentStreamTime) {
-                    try (KeyValueIterator<String, String> iterator = sampleStore.all()) {
-                        while (iterator.hasNext()) {
-                            final KeyValue<String, String> record = iterator.next();
-//                            LOG.info("Checking waiting stream record ({}, {}) with timestamp {}", record.key, record.value.x,
-//                                    record.value.y.toEpochMilli());
-//                            if (waitTimeExpired(record.value.y, currentStreamTime)) {
-//                                final Pair<Double, Long> joinedValue = new Pair<>(record.value.x, null);
-//                                LOG.info("Wait time for stream record ({}, {}) expired, force-forwarding now as join message " +
-//                                        "({}, ({}, {}))", record.key, record.value.x, record.key, joinedValue.x, joinedValue.y);
-//                                context.forward(record.key, joinedValue);
-//                                streamBufferStore.delete(record.key);
-//                            }
-                        }
+                    int count=0;
+                    for(String value : sampleList){
+                         context.forward(null, value);
+                         count++;
                     }
+                    System.out.println("###########################################");
+                    System.out.println(count +" messages sent!");
+                    System.out.println("###########################################");
+                    counter = 0;
+                    sampleList = new ArrayList<>();
+
                 }
 
 //                private boolean waitTimeExpired(final Instant recordTimestamp, final long currentStreamTime) {
