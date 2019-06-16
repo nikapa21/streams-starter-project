@@ -1,7 +1,6 @@
 package com.github.nikos.kafka.streams;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.common.protocol.types.Field;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
@@ -10,22 +9,20 @@ import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.*;
 import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.PunctuationType;
-import org.apache.kafka.streams.state.KeyValueIterator;
-import org.apache.kafka.streams.state.KeyValueStore;
-import org.apache.kafka.streams.state.StoreBuilder;
-import org.apache.kafka.streams.state.Stores;
 
 import java.time.Duration;
 import java.util.*;
 
-public class StreamsStarterApp {
+import static java.util.Calendar.DATE;
+
+public class StreamsRawApp {
 
     public static void main(String[] args) {
 
         Properties config = new Properties();
 
         config.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-starter-app");
-        config.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        config.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
         config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         config.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         config.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
@@ -37,25 +34,19 @@ public class StreamsStarterApp {
 
         StreamsBuilder builder = new StreamsBuilder();
 
-        StoreBuilder sampleStoreBuilder =
-                Stores.keyValueStoreBuilder(
-                        Stores.inMemoryKeyValueStore("inmemory-samples"),
-                        Serdes.String(),
-                        Serdes.String()
-                );
-        builder.addStateStore(sampleStoreBuilder);
+//        KStream<String, String> dataInput = builder.stream("topic-10-input");
+//        /*** APPLY SAMPLING ALGORITHM ***/
+//        dataInput.transform(new ReservoirSamplingSupplier(400L)).to("topic-10-raw-data");
 
-        StoreBuilder counterStoreBuilder =
-                Stores.keyValueStoreBuilder(
-                        Stores.inMemoryKeyValueStore("inmemory-counter"),
-                        Serdes.String(),
-                        Serdes.Long()
-                );
-        builder.addStateStore(counterStoreBuilder);
+        /*** WITHOUT SAMPLING ***/
 
-        KStream<String, String> dataInput = builder.stream("topic-025-input");
-
-        dataInput.transform(new ReservoirSamplingSupplier(50L)).to("topic-025-output");
+        final KStream<String, String> dataInput = builder.stream("topic-10-input");
+        dataInput.foreach(new ForeachAction<String, String>() {
+            public void apply(String key, String value) {
+                System.out.println(key + ": " + value);
+            }
+        });
+        dataInput.to("topic-10-raw-data");
 
         KafkaStreams streams = new KafkaStreams(builder.build(), config);
 
@@ -67,8 +58,6 @@ public class StreamsStarterApp {
 
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
     }
-
-
 
     private static final class ReservoirSamplingSupplier implements TransformerSupplier<String, String, KeyValue<String, String>> {
 
@@ -91,7 +80,7 @@ public class StreamsStarterApp {
                 @SuppressWarnings("unchecked")
                 public void init(ProcessorContext context) {
                     this.context = context;
-                    this.context.schedule(Duration.ofSeconds(2), PunctuationType.STREAM_TIME, this::punctuate);
+                    this.context.schedule(Duration.ofSeconds(10), PunctuationType.WALL_CLOCK_TIME, this::punctuate);
                 }
 
                 @Override
@@ -157,7 +146,7 @@ public class StreamsStarterApp {
                 private void punctuate(final long timestamp) {
 
                     if (initIsDone) {
-                        System.out.println("Punctuating @ timestamp {} " + timestamp);
+                        System.out.println("Punctuating @ timestamp {} " + new Date(timestamp));
                         sendAndPurgeAnyWaitingRecordsThatHaveExceededWaitTime(timestamp);
                     }
 
@@ -175,7 +164,6 @@ public class StreamsStarterApp {
                     System.out.println("###########################################");
                     counter = 0;
                     sampleList = new ArrayList<>();
-
                 }
 
 //                private boolean waitTimeExpired(final Instant recordTimestamp, final long currentStreamTime) {
