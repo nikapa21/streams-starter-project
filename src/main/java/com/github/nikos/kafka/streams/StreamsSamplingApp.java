@@ -34,10 +34,10 @@ public class StreamsSamplingApp {
 
         StreamsBuilder builder = new StreamsBuilder();
 
-        KStream<String, String> dataInput = builder.stream("topic-10-input");
+        KStream<String, String> dataInput = builder.stream("topic-input-data");
 
         /*** APPLY SAMPLING ALGORITHM ***/
-        dataInput.transform(new ReservoirSamplingSupplier(400L)).to("topic-10-sampled-data");
+        dataInput.transform(new ReservoirSamplingSupplier(400L)).to("topic-sampled-data");
 
         KafkaStreams streams = new KafkaStreams(builder.build(), config);
 

@@ -13,7 +13,6 @@ import org.apache.kafka.streams.processor.PunctuationType;
 import java.time.Duration;
 import java.util.*;
 
-import static java.util.Calendar.DATE;
 
 public class StreamsRawApp {
 
@@ -40,13 +39,13 @@ public class StreamsRawApp {
 
         /*** WITHOUT SAMPLING ***/
 
-        final KStream<String, String> dataInput = builder.stream("topic-10-input");
+        final KStream<String, String> dataInput = builder.stream("topic-input-data");
         dataInput.foreach(new ForeachAction<String, String>() {
             public void apply(String key, String value) {
                 System.out.println(key + ": " + value);
             }
         });
-        dataInput.to("topic-10-raw-data");
+        dataInput.to("topic-raw-data");
 
         KafkaStreams streams = new KafkaStreams(builder.build(), config);
 
