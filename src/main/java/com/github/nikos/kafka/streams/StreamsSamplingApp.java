@@ -37,7 +37,7 @@ public class StreamsSamplingApp {
         KStream<String, String> dataInput = builder.stream("topic-input-data");
 
         /*** APPLY SAMPLING ALGORITHM ***/
-        dataInput.transform(new ReservoirSamplingSupplier(400L)).to("topic-sampled-data");
+        dataInput.transform(new ReservoirSamplingSupplier(1600)).to("topic-sampled-data");
 
         KafkaStreams streams = new KafkaStreams(builder.build(), config);
 
