@@ -13,8 +13,6 @@ public class Value implements Serializable {
     private String latitude;
     private String longtitude;
 
-
-
     public Value(String lineNumber, String routeCode, String vehicleId, String lineName, String buslineId, String info, String latitude, String longtitude) {
         this.lineNumber = lineNumber;
         this.routeCode = routeCode;

@@ -19,27 +19,28 @@ public class StreamsSamplingApp {
 
     public static void main(String[] args) {
 
-        Properties config = new Properties();
+        Properties properties = new Properties();
+        String bootstrapServers = "127.0.0.1:9090, 127.0.0.1:9091, 127.0.0.1:9092, 127.0.0.1:9093";
 
-        config.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-starter-app");
-        config.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
-        config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        config.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        config.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-starter-app");
+        properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+        properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
 
         /*** We disable the cache to demonstrate all the "steps" involved in the transformation ***/
         /*** ONLY FOR DEVELOPMENT, NOT PRODUCTION ***/
 
-        config.put(StreamsConfig.CACHE_MAX_BYTES_BUFFERING_CONFIG, "0");
+        properties.put(StreamsConfig.CACHE_MAX_BYTES_BUFFERING_CONFIG, "0");
 
         StreamsBuilder builder = new StreamsBuilder();
 
         KStream<String, String> dataInput = builder.stream("topic-input-data");
 
         /*** APPLY SAMPLING ALGORITHM ***/
-        dataInput.transform(new ReservoirSamplingSupplier(1600)).to("topic-sampled-data");
+        dataInput.transform(new ReservoirSamplingSupplier(1600L)).to("topic-sampled-data");
 
-        KafkaStreams streams = new KafkaStreams(builder.build(), config);
+        KafkaStreams streams = new KafkaStreams(builder.build(), properties);
 
         streams.cleanUp(); //ONLY FOR DEV
         streams.start();

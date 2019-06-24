@@ -21,7 +21,7 @@ public class StreamsRawApp {
         Properties config = new Properties();
 
         config.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-starter-app");
-        config.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
+        config.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092, 127.0.0.1:9093, 127.0.0.1:9094, 127.0.0.1:9095");
         config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         config.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         config.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
@@ -32,10 +32,6 @@ public class StreamsRawApp {
         config.put(StreamsConfig.CACHE_MAX_BYTES_BUFFERING_CONFIG, "0");
 
         StreamsBuilder builder = new StreamsBuilder();
-
-//        KStream<String, String> dataInput = builder.stream("topic-10-input");
-//        /*** APPLY SAMPLING ALGORITHM ***/
-//        dataInput.transform(new ReservoirSamplingSupplier(400L)).to("topic-10-raw-data");
 
         /*** WITHOUT SAMPLING ***/
 
