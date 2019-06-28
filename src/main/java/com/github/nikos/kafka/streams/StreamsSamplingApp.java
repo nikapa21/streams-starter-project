@@ -20,7 +20,7 @@ public class StreamsSamplingApp {
     public static void main(String[] args) {
 
         Properties properties = new Properties();
-        String bootstrapServers = "127.0.0.1:9090, 127.0.0.1:9091, 127.0.0.1:9092, 127.0.0.1:9093";
+        String bootstrapServers = "127.0.0.1:9092";
 
         properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-starter-app");
         properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -38,7 +38,7 @@ public class StreamsSamplingApp {
         KStream<String, String> dataInput = builder.stream("topic-input-data");
 
         /*** APPLY SAMPLING ALGORITHM ***/
-        dataInput.transform(new ReservoirSamplingSupplier(1600L)).to("topic-sampled-data");
+        dataInput.transform(new ReservoirSamplingSupplier(2000L)).to("topic-sampled-data");
 
         KafkaStreams streams = new KafkaStreams(builder.build(), properties);
 
